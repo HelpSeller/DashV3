@@ -1,0 +1,125 @@
+/* --- Dashboard Layout Reset --- */
+.dashboard-container {
+  padding: 2rem;
+  background: #0e1624;
+  color: #ffffff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  min-height: 100vh;
+}
+
+/* --- Grid de Cards --- */
+.dashboard-row {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+/* --- Estilo dos Cards --- */
+.dashboard-card {
+  flex: 1;
+  min-width: 180px;
+  max-width: 240px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 1.2rem;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease-in-out;
+}
+.dashboard-card:hover {
+  transform: translateY(-5px);
+}
+.card-title {
+  font-size: 0.9rem;
+  color: #b0bec5;
+  margin-bottom: 5px;
+}
+.card-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+.card-sub {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #90a4ae;
+}
+
+/* --- Botão dentro do card --- */
+.btn-ver {
+  background-color: #00bcd4;
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  margin-top: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.btn-ver:hover {
+  background-color: #0097a7;
+}
+
+/* --- Grid dos gráficos --- */
+.dashboard-graphs {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+.dashboard-column {
+  flex: 1;
+  min-width: 350px;
+  background: #1a2433;
+  padding: 1rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+.dashboard-full {
+  margin-top: 2rem;
+  background: #1a2433;
+  padding: 1rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.dashboard-container {
+  animation: fadeIn 0.8s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: #111827;
+  color: white;
+}
+
+.spinner {
+  width: 60px;
+  height: 60px;
+  border: 8px solid rgba(255, 255, 255, 0.2);
+  border-top: 8px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,0 +1,27 @@
+{
+    "name": "dashboard-vendas",
+    "version": "1.0.0",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "axios": "^1.6.0",
+        "echarts": "^5.6.0",
+        "echarts-for-react": "^3.0.2",
+        "plotly.js": "^2.27.0",
+        "react": "^18.2.0",
+        "react-countup": "^6.5.3",
+        "react-dom": "^18.2.0",
+        "react-plotly.js": "^2.5.1",
+        "react-router-dom": "^6.20.1"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-react": "^4.4.0",
+        "autoprefixer": "^10.4.21",
+        "postcss": "^8.5.3",
+        "tailwindcss": "^3.4.17",
+        "vite": "^5.2.0"
+    }
+}
