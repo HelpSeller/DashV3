@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import './SelectSchema.css';
 
 export default function SelectSchema() {
   const navigate = useNavigate();
@@ -32,15 +31,30 @@ export default function SelectSchema() {
     fetchSchemas();
   }, []);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!selected) {
       setError("Selecione um schema para continuar.");
       return;
     }
-
-    // ✅ Salva schema e redireciona
-    localStorage.setItem("selectedSchema", selected);
-    navigate("/dashboard");
+  
+    const token = localStorage.getItem("token");
+  
+    try {
+      const res = await api.post("/auth/select-schema", { schema: selected }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+  
+      const novoToken = res.data.access_token;
+  
+      // Substitui o token antigo pelo novo, com o schema embutido
+      localStorage.setItem("token", novoToken);
+      localStorage.setItem("selectedSchema", selected);
+  
+      navigate("/dashboard");
+    } catch (err) {
+      console.error("Erro ao selecionar schema:", err);
+      setError("Erro ao selecionar o schema. Tente novamente.");
+    }
   };
 
   return (

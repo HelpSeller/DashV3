@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
-import './Login.css'
+
 
 export default function Login() {
   const navigate = useNavigate()
@@ -56,7 +56,8 @@ export default function Login() {
 
           {error && <p className="login-error">{error}</p>}
 
-          <button type="submit" className="btn-primary">Entrar</button>
+          <button type="submit" className="btn-primary" >Entrar</button>
+        
         </form>
 
         <p className="forgot" onClick={() => setShowModal(true)}>Esqueci minha senha</p>
