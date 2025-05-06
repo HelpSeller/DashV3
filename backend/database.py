@@ -3,47 +3,38 @@ import os
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 import psycopg2
+import pandas as pd
 
 # Carrega variáveis de ambiente do .env
 load_dotenv(dotenv_path=".env")
 
-# Leitura segura das credenciais
+# Credenciais do banco
 user = os.getenv("POSTGRESQL_USER")
 password = os.getenv("POSTGRESQL_PASSWORD")
 host = os.getenv("POSTGRESQL_HOST")
 port = os.getenv("POSTGRESQL_PORT", "5432")
 db = os.getenv("POSTGRESQL_DB")
 
-# URL padrão SQLAlchemy
+# URL para SQLAlchemy
 DATABASE_URL = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}"
-
-# Cria a engine para uso com pandas/sqlalchemy
 engine = create_engine(DATABASE_URL)
 
 def get_connection(schema=None):
-    user = os.getenv("POSTGRESQL_USER")
-    password = os.getenv("POSTGRESQL_PASSWORD")
-    host = os.getenv("POSTGRESQL_HOST")
-    db = os.getenv("POSTGRESQL_DB")
-    port = os.getenv("POSTGRESQL_PORT", "5432")
-
     conn = psycopg2.connect(
-        dbname=db,
+        host=host,
+        database=db,
         user=user,
         password=password,
-        host=host,
         port=port
     )
-
-    # ⚠️ Ajustar search_path manualmente via cursor
     if schema:
-        with conn.cursor() as cur:
-            cur.execute(f"SET search_path TO {schema}")
+        cur = conn.cursor()
+        cur.execute(f"SET search_path TO {schema};")
+        cur.close()
     return conn
 
-def executar_comando(query, params=None):
-    """Executa um comando SQL (INSERT, UPDATE, DELETE) com commit automático."""
-    conn = get_connection()
+def executar_comando(query, params=None, schema=None):
+    conn = get_connection(schema)
     cur = conn.cursor()
     try:
         cur.execute(query, params)
@@ -55,8 +46,8 @@ def executar_comando(query, params=None):
         cur.close()
         conn.close()
 
-def buscar_usuario_por_email(email: str):
-    conn = get_connection()
+def buscar_usuario_por_email(email: str, schema=None):
+    conn = get_connection(schema)
     cur = conn.cursor()
     try:
         cur.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
@@ -65,8 +56,8 @@ def buscar_usuario_por_email(email: str):
         cur.close()
         conn.close()
 
-def atualizar_senha_temporaria(email: str, senha_hash: str):
-    conn = get_connection()
+def atualizar_senha_temporaria(email: str, senha_hash: str, schema=None):
+    conn = get_connection(schema)
     cur = conn.cursor()
     try:
         cur.execute("UPDATE usuarios SET senha_hash = %s WHERE email = %s", (senha_hash, email))
@@ -74,12 +65,9 @@ def atualizar_senha_temporaria(email: str, senha_hash: str):
     finally:
         cur.close()
         conn.close()
-def executar_query_lista(query: str, params=None):
-    """
-    Executa uma consulta SELECT e retorna uma lista de tuplas.
-    Ideal para uso com pandas ou leitura simples.
-    """
-    conn = get_connection()
+
+def executar_query_lista(query: str, params=None, schema=None):
+    conn = get_connection(schema)
     cur = conn.cursor()
     try:
         cur.execute(query, params)
@@ -87,15 +75,11 @@ def executar_query_lista(query: str, params=None):
     finally:
         cur.close()
         conn.close()
-import pandas as pd
 
-def executar_query_df(query: str, params=None):
-    """Executa uma consulta SQL e retorna um DataFrame do pandas."""
-    conn = get_connection()
+def executar_query_df(query: str, params=None, schema=None):
+    conn = get_connection(schema)
     try:
         df = pd.read_sql_query(query, conn, params=params)
         return df
     finally:
         conn.close()
-
-

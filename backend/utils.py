@@ -51,31 +51,6 @@ def load_data(query: str) -> pd.DataFrame:
         print("Erro ao executar query:", e)
         return pd.DataFrame()
 
-# 📈 Comparação de períodos
-def comparar_periodos(schema, func, inicio_str, fim_str):
-    inicio = datetime.strptime(inicio_str, "%Y-%m-%d").date()
-    fim = datetime.strptime(fim_str, "%Y-%m-%d").date()
-    intervalo = fim - inicio
-
-    inicio_anterior = inicio - intervalo - timedelta(days=1)
-    fim_anterior = inicio - timedelta(days=1)
-
-    inicio_anterior_str = inicio_anterior.strftime("%Y-%m-%d")
-    fim_anterior_str = fim_anterior.strftime("%Y-%m-%d")
-
-    valor_atual = func(schema, inicio_str, fim_str)
-    valor_anterior = func(schema, inicio_anterior_str, fim_anterior_str)
-
-    if not valor_anterior or valor_anterior == 0:
-        indicador = "↑ 100%" if valor_atual > 0 else "0%"
-        cor = "text-blue-500" if valor_atual >= 0 else "text-red-500"
-    else:
-        variacao = ((valor_atual - valor_anterior) / valor_anterior) * 100
-        seta = "↑" if variacao >= 0 else "↓"
-        cor = "text-blue-500" if variacao >= 0 else "text-red-500"
-        indicador = f"{seta} {abs(variacao):.2f}%"
-
-    return valor_atual, valor_anterior, indicador, cor
 
 # 🧠 Outros utilitários
 def convert_to_datetime(df: pd.DataFrame, col_name: str) -> pd.DataFrame:
@@ -224,30 +199,58 @@ def montar_grafico_barras(data, campo_x, campo_y, titulo):
         }
     }
 
-def montar_grafico_linhas(schema, query_func, campo_x, campo_y, titulo):
-    from queries import executar_query_df
+def get_data_periodo(start_date: str = None, end_date: str = None):
+    try:
+        if start_date:
+            start = datetime.strptime(start_date, "%Y-%m-%d")
+        else:
+            today = datetime.today()
+            start = today.replace(day=1)
 
-    query = query_func(schema)
-    df = executar_query_df(query)
+        if end_date:
+            end = datetime.strptime(end_date, "%Y-%m-%d")
+        else:
+            end = datetime.today()
 
-    if df.empty:
+        return start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
+    except Exception as e:
+        raise ValueError(f"Erro ao processar datas: {e}")
+
+def montar_grafico_linhas(schema, query_func, campo_x, campo_y, titulo, start_date=None, end_date=None):
+    """
+    Monta um gráfico de linhas baseado nos dados fornecidos.
+    """
+
+    dados = query_func(schema, start_date, end_date)
+
+    # 🛡️ Se não houver dados ou dados inválidos, monta um gráfico vazio
+    if not dados or not isinstance(dados, list):
         return {
-            "data": [],
-            "layout": {"title": titulo}
+            "title": titulo,
+            "xAxis": {"type": "category", "data": []},
+            "yAxis": {"type": "value"},
+            "series": [
+                {"data": [], "type": "line", "smooth": True}
+            ]
         }
+
+    # 🛡️ Garante que cada item tenha pelo menos dois campos
+    x = []
+    y = []
+
+    for item in dados:
+        if isinstance(item, (list, tuple)) and len(item) >= 2:
+            x.append(item[0])
+            y.append(item[1])
+        else:
+            # Item inválido, ignora
+            continue
 
     return {
-        "data": [{
-            "x": df[campo_x].tolist(),
-            "y": df[campo_y].tolist(),
-            "type": "scatter",
-            "mode": "lines+markers",
-            "marker": {"color": "rgb(40, 167, 69)"}
-        }],
-        "layout": {
-            "title": titulo,
-            "xaxis": {"title": campo_x},
-            "yaxis": {"title": campo_y}
-        }
+        "title": titulo,
+        "xAxis": {"type": "category", "data": x},
+        "yAxis": {"type": "value"},
+        "series": [
+            {"data": y, "type": "line", "smooth": True}
+        ]
     }
-

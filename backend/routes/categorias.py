@@ -1,11 +1,10 @@
 # 📁 routes/categorias.py
 from fastapi import APIRouter, Request, HTTPException
 from auth import verify_token
-from database import get_connection  # ou onde estiver seu get_connection
+from database import get_connection
 
 router = APIRouter()
 
-# 🔍 GET /grafico-categorias → categorias principais (pizza)
 @router.get("/grafico-categorias")
 def grafico_categorias(request: Request):
     payload = verify_token(request)
@@ -39,7 +38,6 @@ def grafico_categorias(request: Request):
         "values": [float(r[1]) for r in rows]
     }
 
-# 🔍 GET /grafico-subcategorias?categoria=Roupas → subcategorias dinâmicas
 @router.get("/grafico-subcategorias")
 def grafico_subcategorias(request: Request, categoria: str):
     payload = verify_token(request)

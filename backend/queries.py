@@ -1,5 +1,6 @@
 # Arquivo: queries.py
 import pandas as pd
+from collections import defaultdict
 import queries
 from utils import get_connection
 from database import executar_query_lista
@@ -59,15 +60,10 @@ def get_valor_total_faturado_query(schema, start_date, end_date):
     conn = get_connection()
     cur = conn.cursor()
     query = f"""
-        SELECT SUM(CAST(nfs.valor AS NUMERIC)) AS valor_total_faturado
-        FROM {schema}.tiny_nfs nfs
-        WHERE nfs.tipo = 'S'
-          AND nfs.cliente_cpf_cnpj IN (
-              SELECT cliente_cpf_cnpj
-              FROM {schema}.tiny_orders
-              WHERE cliente_cpf_cnpj IS NOT NULL
-          )
-          AND nfs."createdAt" BETWEEN '{start_date}' AND '{end_date}';
+        SELECT SUM(CAST(valor AS NUMERIC))
+        FROM {schema}.tiny_nfs
+        WHERE tipo = 'S'
+          AND "createdAt" BETWEEN '{start_date}' AND '{end_date}'
     """
     cur.execute(query)
     result = cur.fetchone()[0]
@@ -150,28 +146,25 @@ def get_top_10_produtos_query(schema):
      '''  
     return query  # Apenas retorna a string, a execução fica com load_data(query)
 
-def get_categorias_query(schema):
+def get_categorias_query(schema, start_date, end_date):
     query = f'''
-        SELECT p.categoria, SUM(CAST(oi.quantidade AS NUMERIC)) as quantidade_total
+        SELECT p.categoria, SUM(CAST(oi.quantidade AS NUMERIC)) AS quantidade_total
         FROM {schema}.tiny_order_item oi
         JOIN {schema}.tiny_products p ON oi.codigo = p.codigo
+        JOIN {schema}.tiny_orders o ON oi.order_id = o.id
+        WHERE DATE(o."createdAt") BETWEEN '{start_date}' AND '{end_date}'
         GROUP BY p.categoria
         ORDER BY quantidade_total DESC
     '''
     return execute_query(schema, query)
-def get_valor_total_frete_query(schema: str, start_date: str, end_date: str):
+def get_valor_total_frete_query(schema, start_date, end_date):
     conn = get_connection()
     cur = conn.cursor()
     query = f"""
-        SELECT SUM(CAST(nfs.valor_frete AS NUMERIC)) AS valor_total_frete
-        FROM {schema}.tiny_nfs nfs
-        WHERE nfs.tipo = 'S'
-          AND nfs.cliente_cpf_cnpj IN (
-              SELECT cliente_cpf_cnpj
-              FROM {schema}.tiny_orders
-              WHERE cliente_cpf_cnpj IS NOT NULL
-          )
-          AND nfs."createdAt" BETWEEN '{start_date}' AND '{end_date}';
+        SELECT SUM(CAST(valor_frete AS NUMERIC))
+        FROM {schema}.tiny_nfs
+        WHERE tipo = 'S'
+          AND "createdAt" BETWEEN '{start_date}' AND '{end_date}'
     """
     cur.execute(query)
     result = cur.fetchone()[0]
@@ -179,62 +172,142 @@ def get_valor_total_frete_query(schema: str, start_date: str, end_date: str):
     conn.close()
     return result or 0
 
-def get_valor_total_devolucao_query(schema: str, start_date: str, end_date: str):
+def get_valor_total_devolucao_query(schema, start_date, end_date):
     conn = get_connection()
     cur = conn.cursor()
+
     query = f"""
-        SELECT 
-            SUM(CAST(nfs.valor AS NUMERIC)) AS valor_total_devolucao,
-            COUNT(*) AS qtd_devolucoes
-        FROM {schema}.tiny_nfs nfs
-        WHERE nfs.tipo = 'E'
-          AND nfs.cliente_cpf_cnpj IN (
-              SELECT DISTINCT cliente_cpf_cnpj
-              FROM {schema}.tiny_nfs
-              WHERE tipo = 'S'
+        WITH vendas AS (
+            SELECT id, cliente_cpf_cnpj
+            FROM {schema}.tiny_orders
+            WHERE cliente_cpf_cnpj IS NOT NULL
+        ),
+        itens_venda AS (
+            SELECT oi.order_id, oi.codigo, oi.valor_unitario, oi.quantidade
+            FROM {schema}.tiny_order_item oi
+        ),
+        notas_saida AS (
+            SELECT cliente_cpf_cnpj
+            FROM {schema}.tiny_nfs
+            WHERE tipo = 'S'
               AND "createdAt" BETWEEN '{start_date}' AND '{end_date}'
-          )
-          AND nfs."createdAt" BETWEEN '{start_date}' AND '{end_date}';
+        ),
+        notas_entrada AS (
+            SELECT cliente_cpf_cnpj
+            FROM {schema}.tiny_nfs
+            WHERE tipo = 'E'
+              AND "createdAt" BETWEEN '{start_date}' AND '{end_date}'
+        ),
+        devolucoes_validas AS (
+            SELECT 
+                v.cliente_cpf_cnpj,
+                i.codigo,
+                i.valor_unitario,
+                i.quantidade
+            FROM vendas v
+            INNER JOIN itens_venda i ON v.id = i.order_id
+            INNER JOIN notas_entrada e ON v.cliente_cpf_cnpj = e.cliente_cpf_cnpj
+            INNER JOIN notas_saida s ON v.cliente_cpf_cnpj = s.cliente_cpf_cnpj
+        )
+        SELECT 
+            COALESCE(SUM(CAST(valor_unitario AS NUMERIC) * CAST(quantidade AS NUMERIC)), 0) AS valor_total_devolvido,
+            COUNT(*) AS qtd_devolucoes
+        FROM devolucoes_validas;
     """
+
     cur.execute(query)
     result = cur.fetchone()
     cur.close()
     conn.close()
+
     if result and result[0] is not None:
         return float(result[0]), int(result[1])
     return 0.0, 0
 
 def get_faturamento_por_marketplace_query(schema: str, start_date: str, end_date: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        query = f"""
+            SELECT
+              CASE
+                WHEN o.forma_pagamento = 'multiplas' THEN
+                  CASE
+                    WHEN LOWER(o.nome_transportador) LIKE '%magalu%' OR LOWER(o.forma_envio) LIKE '%magalu%' THEN 'Magazine Luiza'
+                    WHEN LOWER(o.nome_transportador) LIKE '%melhor envio%' OR LOWER(o.forma_envio) LIKE '%melhor envio%' THEN 'NuvemShop'
+                    ELSE 'Outros'
+                  END
+                ELSE o.forma_pagamento
+              END AS marketplace,
+              DATE_TRUNC('month', nfs."createdAt") AS mes,
+              SUM(CAST(nfs.valor AS NUMERIC)) AS valor_total
+            FROM {schema}.tiny_nfs nfs
+            INNER JOIN {schema}.tiny_orders o
+              ON nfs.cliente_cpf_cnpj = o.cliente_cpf_cnpj
+            WHERE nfs.tipo = 'S'
+              AND nfs."createdAt" BETWEEN '{start_date}' AND '{end_date}'
+            GROUP BY marketplace, mes
+            ORDER BY mes ASC;
+        """
+        cur.execute(query)
+        rows = cur.fetchall()
+
+        # Processar dados
+        marketplace_dict = defaultdict(lambda: [])
+
+        if rows:
+            df = pd.DataFrame(rows, columns=['marketplace', 'mes', 'valor_total'])
+            meses = sorted(df['mes'].dt.strftime('%Y-%m').unique())
+
+            for marketplace in df['marketplace'].unique():
+                valores = []
+                for mes in meses:
+                    filtro = (df['marketplace'] == marketplace) & (df['mes'].dt.strftime('%Y-%m') == mes)
+                    valor = df.loc[filtro, 'valor_total'].sum()
+                    valores.append(float(valor) if not pd.isna(valor) else 0)
+                marketplace_dict[marketplace] = valores
+
+        return dict(marketplace_dict)
+
+    finally:
+        cur.close()
+        conn.close()
+
+def get_faturamento_mensal_query(schema, start_date, end_date):
+    conn = get_connection()
+    cur = conn.cursor()
+
     query = f"""
-        SELECT
-            o.forma_pagamento AS marketplace,
-            DATE(nfs."createdAt") AS data,
-            SUM(CAST(nfs.valor AS NUMERIC)) AS valor_total
+        SELECT 
+            TO_CHAR(nfs."createdAt", 'YYYY-MM') AS mes,
+            SUM(CAST(nfs.valor AS NUMERIC)) AS faturamento,
+            COUNT(DISTINCT nfs.id) AS qtd_pedidos,
+            CASE 
+                WHEN COUNT(DISTINCT nfs.id) = 0 THEN 0
+                ELSE SUM(CAST(nfs.valor AS NUMERIC)) / COUNT(DISTINCT nfs.id)
+            END AS ticket_medio
         FROM {schema}.tiny_nfs nfs
-        JOIN {schema}.tiny_orders o
-          ON o.cliente_cpf_cnpj = nfs.cliente_cpf_cnpj
         WHERE nfs.tipo = 'S'
           AND nfs."createdAt" BETWEEN '{start_date}' AND '{end_date}'
-        GROUP BY o.forma_pagamento, DATE(nfs."createdAt")
-        ORDER BY data ASC;
-    """
-    return execute_query(schema, query)
-
-def get_faturamento_mensal_query(schema: str):
-    return f"""
-        SELECT
-            TO_CHAR(nfs."createdAt", 'YYYY-MM') AS mes,
-            COUNT(DISTINCT o.id) AS total_pedidos,
-            SUM(CAST(oi.quantidade AS NUMERIC) * CAST(oi.valor_unitario AS NUMERIC)) AS faturamento
-        FROM {schema}.tiny_nfs nfs
-        JOIN {schema}.tiny_orders o ON o.cliente_cpf_cnpj = nfs.cliente_cpf_cnpj
-        JOIN {schema}.tiny_order_item oi ON oi.order_id = o.id
-        WHERE nfs.tipo = 'S'
-        AND nfs."createdAt" >= (CURRENT_DATE - INTERVAL '12 months')
         GROUP BY mes
-        ORDER BY mes
+        ORDER BY mes;
     """
 
+    cur.execute(query)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    # Devolver formato pronto para o gráfico
+    dados = []
+    for row in rows:
+        dados.append({
+            "mes": row[0],
+            "faturamento": float(row[1]),
+            "qtd_pedidos": int(row[2]),
+            "ticket_medio": float(row[3])
+        })
+    return dados
 def get_produto_campeao(schema, data_inicio, data_fim):
     from utils import get_connection
     conn = get_connection()
@@ -372,14 +445,15 @@ def get_top_devolved_products_query(schema):
     """
     return execute_query(schema, query)
 
-def get_total_produtos_sem_venda(schema, data_inicio, data_fim):
+def get_total_produtos_sem_venda(schema, start_date, end_date):
     conn = get_connection()
     cur = conn.cursor()
     query = f"""
         WITH notas_saida AS (
             SELECT REGEXP_REPLACE(cliente_cpf_cnpj, '[^0-9]', '', 'g') AS cpf_cnpj
             FROM {schema}.tiny_nfs
-            WHERE tipo = 'S' AND "createdAt" BETWEEN '{data_inicio}' AND '{data_fim}'
+            WHERE tipo = 'S'
+              AND "createdAt" BETWEEN '{start_date}' AND '{end_date}'
         ),
         pedidos_filtrados AS (
             SELECT id
@@ -391,10 +465,11 @@ def get_total_produtos_sem_venda(schema, data_inicio, data_fim):
             FROM {schema}.tiny_order_item
             WHERE order_id IN (SELECT id FROM pedidos_filtrados)
         )
-        SELECT COUNT(*) AS total_sem_venda
+        SELECT COUNT(*)
         FROM {schema}.tiny_products
-        WHERE codigo IS NOT NULL
-        AND codigo NOT IN (SELECT codigo FROM produtos_vendidos);
+        WHERE estoque > 0
+          AND codigo IS NOT NULL
+          AND codigo NOT IN (SELECT codigo FROM produtos_vendidos)
     """
     cur.execute(query)
     result = cur.fetchone()
@@ -640,25 +715,6 @@ def get_ticket_medio(schema: str, data_inicio: str, data_fim: str) -> float:
     df = execute_query(schema, query)
     return float(df['ticket_medio'][0]) if not df.empty else 0.0
 
-def get_valor_total_devolucao_query(schema: str, start_date: str, end_date: str) -> tuple[float, int]:
-    query = f"""
-        SELECT 
-            SUM(CAST(nfs.valor AS NUMERIC)) AS valor_total_devolucao,
-            COUNT(*) AS qtd_devolucoes
-        FROM {schema}.tiny_nfs nfs
-        WHERE nfs.tipo = 'E'
-        AND nfs.cliente_cpf_cnpj IN (
-            SELECT DISTINCT cliente_cpf_cnpj
-            FROM {schema}.tiny_nfs
-            WHERE tipo = 'S'
-            AND "createdAt" BETWEEN '{start_date}' AND '{end_date}'
-        )
-        AND nfs."createdAt" BETWEEN '{start_date}' AND '{end_date}';
-    """
-    df = execute_query(schema, query)
-    if not df.empty:
-        return float(df['valor_total_devolucao'][0] or 0), int(df['qtd_devolucoes'][0])
-    return 0.0, 0
 
 def get_ranking_vendas_query(schema: str, start_date: str, end_date: str):
     query = f"""
@@ -722,3 +778,18 @@ def get_detalhes_ranking_vendas(schema: str, start_date: str, end_date: str):
         FROM classificados
     """
     return execute_query(schema, query)
+
+def get_valor_total_faturado_simples(schema, start_date, end_date):
+    conn = get_connection()
+    cur = conn.cursor()
+    query = f"""
+        SELECT SUM(CAST(valor AS NUMERIC)) AS total
+        FROM {schema}.tiny_nfs
+        WHERE tipo = 'S'
+          AND "createdAt" BETWEEN '{start_date}' AND '{end_date}';
+    """
+    cur.execute(query)
+    result = cur.fetchone()[0] or 0
+    cur.close()
+    conn.close()
+    return result
