@@ -8,6 +8,9 @@ import SelectSchema from "./pages/SelectSchema";
 import LayoutPrivate from "./components/layout/LayoutPrivate";
 import Produtos from "./pages/Produtos";
 import Calculadora from './pages/Calculadora';
+import Loja from './pages/Loja';
+import Produto from "./pages/Produto_Loja";
+import Checkout from './pages/Checkout';
 
 function App() {
   return (
@@ -43,7 +46,7 @@ function App() {
         >
           <Route index element={<Produtos />} />
         </Route>
-        
+
         <Route
           path="/vendas"
           element={
@@ -104,6 +107,36 @@ function App() {
           <Route index element={<Calculadora />} />
         </Route>
 
+        <Route
+          path="/loja"
+          element={
+            <ProtectedRoute>
+              <LayoutPrivate showDateFilter={false}>
+                <Loja />
+              </LayoutPrivate>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/produto/:id"
+          element={
+            <ProtectedRoute>
+              <LayoutPrivate showDateFilter={false}>
+                <Produto />
+              </LayoutPrivate>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/checkout"
+          element={
+            <ProtectedRoute>
+              <LayoutPrivate showDateFilter={false}>
+                <Checkout />
+              </LayoutPrivate>
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </Router>
   );

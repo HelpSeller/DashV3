@@ -5,7 +5,6 @@ import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import DateFilterModal from "./DateFilterModal";
 
-
 export default function LayoutPrivate() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -32,16 +31,17 @@ export default function LayoutPrivate() {
       <Sidebar isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
 
       <div className="ml-0 md:ml-[250px]">
-        <Topbar
-          toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          showDateFilter={isDashboard}
-          onOpenFilter={() => setFilterOpen(true)}
-        />
+        <div className="flex justify-between items-center p-4">
+          <Topbar
+            toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+            showDateFilter={isDashboard}
+            onOpenFilter={() => setFilterOpen(true)}
+          />
+        </div>
 
-      <main className="p-4">
-      <Outlet context={{ startDate, endDate }} />
-
-      </main>
+        <main className="p-4">
+          <Outlet context={{ startDate, endDate }} />
+        </main>
       </div>
 
       <DateFilterModal

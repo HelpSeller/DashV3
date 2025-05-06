@@ -16,13 +16,15 @@
         "jspdf": "^3.0.1",
         "jspdf-autotable": "^5.0.2",
         "jwt-decode": "^4.0.0",
+        "lucide-react": "^0.507.0",
         "plotly.js": "^2.27.0",
         "react": "^18.2.0",
         "react-countup": "^6.5.3",
         "react-datepicker": "^8.3.0",
         "react-dom": "^18.2.0",
         "react-plotly.js": "^2.5.1",
-        "react-router-dom": "^6.20.1"
+        "react-router-dom": "^6.20.1",
+        "zustand": "^5.0.4"
     },
     "devDependencies": {
         "@vitejs/plugin-react": "^4.4.0",
