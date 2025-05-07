@@ -2,16 +2,20 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
-class ProdutoLojaSchema(BaseModel):
-    id: int
+# 🟩 Schema de entrada (para criação de produtos)
+class ProdutoCreate(BaseModel):
     codigo: str
     nome: str
     descricao: Optional[str] = None
     preco: float
     estoque: int
     categoria_id: Optional[int] = None
-    ativo: bool
+    ativo: bool = True
+
+# 🟦 Schema completo com ID e created_at (retorno no GET/POST)
+class Produto(ProdutoCreate):
+    id: int
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # substitui orm_mode no Pydantic v2

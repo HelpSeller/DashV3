@@ -30,11 +30,14 @@ export default function Sidebar({ isOpen, toggleSidebar }) {
     { label: "Produtos", to: "/produtos" },
     { label: "Vendas", to: "/vendas" },
     { label: "Financeiro", to: "/financeiro" },
+    { label: "Agendar Consultoria", to: "/agendamento"},
     { label: "Notificações", to: "/notificacoes" },
-    { label: "Perfil", to: "/perfil" },
+    { label: "Loja de Extensões", to: "/loja" },
+    { label: "Ferramentas", to: "/pedidos" },
+    { label: "Meu Perfil", to: "/perfil" },
   ];
 
-  // ✅ Adiciona Calculadora se estiver no token
+  // Adiciona Calculadora se estiver habilitado no token
   if (modulosAtivos.includes("calculadora")) {
     links.push({ label: "Calculadora", to: "/calculadora" });
   }
